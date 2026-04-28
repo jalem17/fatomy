@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>عالم فطوم</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: radial-gradient(circle, #1a0008 0%, #050002 100%);
+      font-family: 'Cairo', sans-serif;
+      touch-action: none;
+      animation: bgPulse 10s infinite alternate;
+    }
+    #webgl-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    #overlay-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 20;
+      pointer-events: none;
+    }
+    #falling-hearts {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .falling-heart {
+      position: absolute;
+      top: -10vh;
+      color: #dc143c;
+      font-size: 1.5rem;
+      animation: fall linear infinite;
+      opacity: 0.6;
+      filter: drop-shadow(0 0 10px rgba(255,0,255,0.5));
+    }
+    .massive-heart {
+      position: absolute;
+      color: #ff00ff;
+      font-size: 5rem;
+      animation: explodeUp 2s ease-out forwards;
+      pointer-events: none;
+      z-index: 60;
+      filter: drop-shadow(0 0 20px rgba(255,182,193,0.8));
+    }
+    #ui-container {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 30px 15px;
+      z-index: 50;
+      pointer-events: none;
+    }
+    .page {
+      display: none;
+      pointer-events: auto;
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 182, 193, 0.2);
+      border-radius: 40px;
+      padding: 35px 25px;
+      text-align: center;
+      width: 100%;
+      max-width: 450px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8), inset 0 0 30px rgba(255,0,255,0.15);
+      animation: floatUp 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      margin-bottom: 25px;
+    }
+    .page.active {
+      display: block;
+    }
+    .title-text {
+      color: #ffe6ea;
+      font-size: 2.4rem;
+      font-weight: 900;
+      margin: 0 0 15px 0;
+      animation: pulseText 2.5s infinite ease-in-out;
+      line-height: 1.3;
+      text-shadow: 0 0 15px rgba(255,0,255,0.5);
+    }
+    .sub-text {
+      color: #ffb6c1;
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin: 0 0 25px 0;
+      line-height: 1.7;
+      text-shadow: 0 2px 5px rgba(0,0,0,0.8);
+    }
+    .btn-primary {
+      background: linear-gradient(45deg, #dc143c, #ff00ff, #dc143c, #ff1493);
+      background-size: 300% 300%;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 50px;
+      color: white;
+      font-size: 1.4rem;
+      font-weight: 900;
+      padding: 18px 45px;
+      cursor: pointer;
+      box-shadow: 0 10px 30px rgba(220,20,60,0.7), inset 0 0 10px rgba(255,255,255,0.3);
+      transition: all 0.2s ease;
+      font-family: 'Cairo', sans-serif;
+      width: 100%;
+      animation: gradientShift 4s ease infinite;
+    }
+    .btn-primary:active {
+      transform: scale(0.92);
+      box-shadow: 0 2px 10px rgba(220,20,60,0.8);
+    }
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      width: 100%;
+      margin-bottom: 25px;
+    }
+    .btn-secret {
+      background: rgba(255, 182, 193, 0.05);
+      border: 1px solid rgba(255, 182, 193, 0.4);
+      border-radius: 25px;
+      color: #ffe6ea;
+      font-size: 1.3rem;
+      padding: 18px 10px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-family: 'Cairo', sans-serif;
+      font-weight: 900;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+    .btn-secret:active {
+      background: rgba(255, 0, 255, 0.3);
+      transform: scale(0.9);
+      border-color: #ff00ff;
+      box-shadow: 0 0 20px rgba(255,0,255,0.5);
+    }
+    .hold-btn {
+      background: transparent;
+      border: 3px solid #ff00ff;
+      border-radius: 50%;
+      width: 120px;
+      height: 120px;
+      color: #ffb6c1;
+      font-size: 1.2rem;
+      font-weight: 900;
+      font-family: 'Cairo', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px auto;
+      cursor: pointer;
+      box-shadow: 0 0 30px rgba(255,0,255,0.4), inset 0 0 20px rgba(255,0,255,0.4);
+      transition: all 0.1s;
+      position: relative;
+      overflow: hidden;
+    }
+    .hold-btn-fill {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 0%;
+      background: linear-gradient(0deg, #dc143c, #ff00ff);
+      z-index: -1;
+      transition: height 0.1s linear;
+    }
+    .meter-text {
+      color: #ffe6ea;
+      font-size: 2rem;
+      font-weight: 900;
+      margin-bottom: 20px;
+      text-shadow: 0 0 20px #ff00ff;
+    }
+    #modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.9);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      pointer-events: auto;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+    #modal-overlay.show {
+      display: flex;
+      opacity: 1;
+    }
+    .modal-content {
+      background: linear-gradient(135deg, #4a001a, #1a0008);
+      border: 3px solid #ff00ff;
+      border-radius: 40px;
+      padding: 50px 30px;
+      text-align: center;
+      box-shadow: 0 0 80px rgba(255,0,255,0.6), inset 0 0 30px rgba(220,20,60,0.6);
+      transform: scale(0.7);
+      transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      max-width: 90%;
+      width: 420px;
+      position: relative;
+      overflow: hidden;
+    }
+    #modal-overlay.show .modal-content {
+      transform: scale(1);
+    }
+    .nav-dots {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 15px;
+      pointer-events: auto;
+    }
+    .dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.15);
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      cursor: pointer;
+    }
+    .dot.active {
+      background: #ff00ff;
+      box-shadow: 0 0 20px #ff00ff, 0 0 40px #ff1493;
+      transform: scale(1.6);
+    }
+    @keyframes pulseText {
+      0% { text-shadow: 0 0 20px rgba(255,0,255,0.6), 0 0 40px rgba(220,20,60,0.7); transform: scale(1); }
+      50% { text-shadow: 0 0 35px rgba(255,0,255,1), 0 0 70px rgba(255,182,193,0.9); transform: scale(1.06); color: #fff; }
+      100% { text-shadow: 0 0 20px rgba(255,0,255,0.6), 0 0 40px rgba(220,20,60,0.7); transform: scale(1); }
+    }
+    @keyframes floatUp {
+      from { opacity: 0; transform: translateY(80px) scale(0.85) rotate(-2deg); }
+      to { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+    }
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    @keyframes fall {
+      0% { transform: translateY(0) rotate(0deg) scale(1.2); opacity: 0; }
+      10% { opacity: 0.9; }
+      90% { opacity: 0.9; }
+      100% { transform: translateY(120vh) rotate(720deg) scale(0.3); opacity: 0; }
+    }
+    @keyframes explodeUp {
+      0% { transform: translate(-50%, -50%) scale(0.1) rotate(0deg); opacity: 1; }
+      50% { transform: translate(-50%, -150px) scale(1.5) rotate(180deg); opacity: 1; }
+      100% { transform: translate(-50%, -300px) scale(3) rotate(360deg); opacity: 0; }
+    }
+    @keyframes bgPulse {
+      0% { background: radial-gradient(circle, #1a0008 0%, #050002 100%); }
+      100% { background: radial-gradient(circle, #2a0012 0%, #000000 100%); }
+    }
+  </style>
+</head>
+<body>
+  <div id="webgl-container"></div>
+  <canvas id="overlay-canvas"></canvas>
+  <div id="falling-hearts"></div>
+  <div id="ui-container">
+    <div class="page active" id="page-0">
+      <h1 class="title-text">يا عيون فطوم</h1>
+      <p class="sub-text">انتي روحي وحياتي وكل دنيتي سويت هالمكان مخصوص عشان ادلعك واعبر لك عن حبي المجنون</p>
+      <button class="btn-primary" onclick="goToPage(1)">ادخلي عالمنا يا قلبي</button>
+    </div>
+    <div class="page" id="page-1">
+      <h1 class="title-text">انتي اميرتي المدللة</h1>
+      <p class="sub-text">من يوم عرفتك والدنيا تضحك لي كل يوم معاك هو عيد حب وكل لحظة جنبك هي عمر جديد</p>
+      <button class="btn-primary" onclick="goToPage(2)">اكملي يا نبضي</button>
+    </div>
+    <div class="page" id="page-2">
+      <h1 class="title-text">ازرار الدلع والحب</h1>
+      <p class="sub-text">اضغطي على اي زر وشوفي وش مخبي لك بقلبي</p>
+      <div class="btn-grid">
+        <button class="btn-secret" onclick="openModal('انتي اجمل صدفة غيرت حياتي كلها ومستحيل اتخلى عنك')">سر سعادتي</button>
+        <button class="btn-secret" onclick="openModal('صوتك هو الامان اللي ادوره دايما يريح قلبي وروحي')">نور عيني</button>
+        <button class="btn-secret" onclick="openModal('كل نبضة بقلبي تنبض باسمك انتي وبس يا دنيتي')">راحتي</button>
+        <button class="btn-secret" onclick="openModal('لو الف الدنيا كلها ما القى بجمال روحك وحنيتك ابدا')">اجمل اشيائي</button>
+        <button class="btn-secret" onclick="openModal('عيونك بحر اغرق فيه كل يوم وادعي ربي ما ينجيني منه')">سري الحلو</button>
+        <button class="btn-secret" onclick="openModal('انتي النعمة اللي اشكر ربي عليها في كل سجدة')">دعوتي</button>
+      </div>
+      <button class="btn-primary" onclick="goToPage(3)">وش بعد</button>
+    </div>
+    <div class="page" id="page-3">
+      <h1 class="title-text">شاشة الحب</h1>
+      <p class="sub-text">حركي اصبعك على الشاشة وشوفي كيف الحب يتناثر من لمساتك يا ملاكي</p>
+      <div style="height: 40px;"></div>
+      <button class="btn-primary" onclick="goToPage(4)">شوفي اللي بعده</button>
+    </div>
+    <div class="page" id="page-4">
+      <h1 class="title-text">مقياس حبي لك</h1>
+      <p class="sub-text">اضغطي مطولا على الزر اللي تحت وشوفي كمية حبي لك تزيد وتزيد</p>
+      <div class="meter-text" id="meter-text">٠٪</div>
+      <div class="hold-btn" id="hold-btn">
+        <div class="hold-btn-fill" id="hold-fill"></div>
+        اضغطي هنا
+      </div>
+      <button class="btn-primary" onclick="goToPage(5)">كملي يا قلبي</button>
+    </div>
+    <div class="page" id="page-5">
+      <h1 class="title-text" style="color: #ff00ff;">وعدي لك</h1>
+      <p class="sub-text" style="font-weight: 900; font-size: 1.6rem; color: #ffe6ea;">اظل احبك وادلعك لاخر يوم بعمري دايما وابدا انتي الاولى والاخيرة في قلبي وحياتي</p>
+      <button class="btn-primary" onclick="goToPage(0)">نرجع للبداية</button>
+    </div>
+    <div class="nav-dots" id="dots-container">
+      <div class="dot active" onclick="goToPage(0)"></div>
+      <div class="dot" onclick="goToPage(1)"></div>
+      <div class="dot" onclick="goToPage(2)"></div>
+      <div class="dot" onclick="goToPage(3)"></div>
+      <div class="dot" onclick="goToPage(4)"></div>
+      <div class="dot" onclick="goToPage(5)"></div>
+    </div>
+  </div>
+  <div id="modal-overlay" onclick="closeModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <h2 class="title-text" style="font-size: 2rem; margin-bottom: 25px;">رسالة حب لفطوم</h2>
+      <p id="modal-text" class="sub-text" style="font-size: 1.5rem; color: #fff; font-weight: 900;"></p>
+      <button class="btn-primary" style="padding: 15px 40px; font-size: 1.4rem; margin-top: 20px;" onclick="closeModal()">فديت قلبك</button>
+    </div>
+  </div>
+  <script>
+    let currentPage = 0
+    function goToPage(index) {
+      document.querySelectorAll('.page').forEach(el => el.classList.remove('active'))
+      document.querySelectorAll('.dot').forEach(el => el.classList.remove('active'))
+      document.getElementById('page-' + index).classList.add('active')
+      document.getElementById('dots-container').children[index].classList.add('active')
+      currentPage = index
+    }
+    function openModal(text) {
+      document.getElementById('modal-text').innerText = text
+      document.getElementById('modal-overlay').classList.add('show')
+    }
+    function closeModal() {
+      document.getElementById('modal-overlay').classList.remove('show')
+    }
+    const heartsContainer = document.getElementById('falling-hearts')
+    const heartSymbols = ['❤️', '💖', '✨', '🌸', '💕', '💘', '💝', '💗']
+    function createFallingHeart() {
+      const heart = document.createElement('div')
+      heart.classList.add('falling-heart')
+      heart.innerText = heartSymbols[Math.floor(Math.random() * heartSymbols.length)]
+      heart.style.left = Math.random() * 100 + 'vw'
+      heart.style.animationDuration = (Math.random() * 6 + 4) + 's'
+      heart.style.fontSize = (Math.random() * 2 + 1) + 'rem'
+      heartsContainer.appendChild(heart)
+      setTimeout(() => { heart.remove() }, 10000)
+    }
+    setInterval(createFallingHeart, 250)
+    let isHolding = false
+    let meterValue = 0
+    let meterRaf
+    const meterText = document.getElementById('meter-text')
+    const meterFill = document.getElementById('hold-fill')
+    const holdBtn = document.getElementById('hold-btn')
+    const toArabicNumerals = (num) => {
+      const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩']
+      return String(num).split('').map(c => arabicNumbers[c] || c).join('')
+    }
+    function updateMeter() {
+      if (isHolding) {
+        meterValue += 3
+        let visualValue = Math.min(meterValue, 100)
+        meterFill.style.height = visualValue + '%'
+        if (meterValue <= 100) {
+          meterText.innerText = toArabicNumerals(Math.floor(meterValue)) + '٪'
+          holdBtn.style.transform = `scale(${1 + (meterValue / 200)})`
+        } else {
+          meterText.innerText = 'حبي لك ماله نهاية ' + toArabicNumerals(Math.floor(meterValue)) + '٪'
+          holdBtn.style.transform = `scale(${1.5 + Math.sin(meterValue * 0.1) * 0.1})`
+          if (meterValue % 20 < 3) {
+            spawnExplodingHeart()
+          }
+        }
+      } else {
+        if (meterValue > 0) {
+          meterValue -= 1
+          if (meterValue < 0) meterValue = 0
+          let visualValue = Math.min(meterValue, 100)
+          meterFill.style.height = visualValue + '%'
+          if (meterValue <= 100) {
+             meterText.innerText = toArabicNumerals(Math.floor(meterValue)) + '٪'
+             holdBtn.style.transform = `scale(${1 + (meterValue / 200)})`
+          }
+        }
+      }
+      meterRaf = requestAnimationFrame(updateMeter)
+    }
+    holdBtn.addEventListener('mousedown', () => { isHolding = true })
+    holdBtn.addEventListener('touchstart', (e) => { e.preventDefault(); isHolding = true })
+    window.addEventListener('mouseup', () => { isHolding = false })
+    window.addEventListener('touchend', () => { isHolding = false })
+    updateMeter()
+    function spawnExplodingHeart() {
+      const el = document.createElement('div')
+      el.classList.add('massive-heart')
+      el.innerText = '💖'
+      el.style.left = (20 + Math.random() * 60) + 'vw'
+      el.style.top = '80vh'
+      document.body.appendChild(el)
+      setTimeout(() => el.remove(), 2000)
+    }
+    const initThreeJS = () => {
+      const w = window.innerWidth
+      const h = window.innerHeight
+      const scene = new THREE.Scene()
+      const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100)
+      camera.position.z = 15
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+      renderer.setSize(w, h)
+      renderer.setPixelRatio(window.devicePixelRatio)
+      document.getElementById('webgl-container').appendChild(renderer.domElement)
+      const ambientLight = new THREE.AmbientLight(0xffb6c1, 0.8)
+      scene.add(ambientLight)
+      const pointLight = new THREE.PointLight(0xff00ff, 3, 30)
+      pointLight.position.set(0, 0, 4)
+      scene.add(pointLight)
+      const pointLight2 = new THREE.PointLight(0xdc143c, 2, 20)
+      pointLight2.position.set(0, -5, 2)
+      scene.add(pointLight2)
+      const shape = new THREE.Shape()
+      for (let t = 0; t < Math.PI * 2; t += 0.05) {
+        const x = 0.06 * (16 * Math.pow(Math.sin(t), 3))
+        const y = 0.06 * (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t))
+        if (t === 0) shape.moveTo(x, y)
+        else shape.lineTo(x, y)
+      }
+      const extrudeSettings = {
+        depth: 0.2, bevelEnabled: true, bevelSegments: 30,
+        steps: 3, bevelSize: 0.1, bevelThickness: 0.1
+      }
+      const heartGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings)
+      heartGeo.center()
+      const heartMat = new THREE.MeshPhysicalMaterial({
+        color: 0xff1493, emissive: 0x8a0028, roughness: 0.02,
+        metalness: 0.3, clearcoat: 1.0, clearcoatRoughness: 0.05,
+        transmission: 0.95, thickness: 1.2
+      })
+      const heartMesh = new THREE.Mesh(heartGeo, heartMat)
+      const bloomGeo = heartGeo.clone()
+      const bloomMat = new THREE.MeshBasicMaterial({
+        color: 0xff00ff, transparent: true, opacity: 0.25,
+        blending: THREE.AdditiveBlending, depthWrite: false
+      })
+      const bloomMesh = new THREE.Mesh(bloomGeo, bloomMat)
+      bloomMesh.scale.set(1.25, 1.25, 1.25)
+      const glowGeo = heartGeo.clone()
+      const glowMat = new THREE.MeshBasicMaterial({
+        color: 0xdc143c, transparent: true, opacity: 0.15,
+        blending: THREE.AdditiveBlending, depthWrite: false
+      })
+      const glowMesh = new THREE.Mesh(glowGeo, glowMat)
+      glowMesh.scale.set(1.4, 1.4, 1.4)
+      const heartGroup = new THREE.Group()
+      heartGroup.add(heartMesh)
+      heartGroup.add(bloomMesh)
+      heartGroup.add(glowMesh)
+      heartGroup.position.y = 2.5
+      scene.add(heartGroup)
+      const circleCanvas = document.createElement('canvas')
+      circleCanvas.width = 128
+      circleCanvas.height = 128
+      const ctx = circleCanvas.getContext('2d')
+      const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64)
+      gradient.addColorStop(0, 'rgba(255, 255, 255, 1)')
+      gradient.addColorStop(0.2, 'rgba(255, 182, 193, 0.9)')
+      gradient.addColorStop(0.5, 'rgba(255, 0, 255, 0.5)')
+      gradient.addColorStop(1, 'rgba(255, 0, 255, 0)')
+      ctx.fillStyle = gradient
+      ctx.fillRect(0, 0, 128, 128)
+      const particleTexture = new THREE.CanvasTexture(circleCanvas)
+      const pCount = 800
+      const pGeo = new THREE.BufferGeometry()
+      const pPos = new Float32Array(pCount * 3)
+      const pVel = []
+      const pBase = []
+      for (let i = 0; i < pCount; i++) {
+        const x = (Math.random() - 0.5) * 40
+        const y = (Math.random() - 0.5) * 40
+        const z = (Math.random() - 0.5) * 20 - 5
+        pPos[i * 3] = x
+        pPos[i * 3 + 1] = y
+        pPos[i * 3 + 2] = z
+        pBase.push({ x, y, z })
+        pVel.push({
+          y: Math.random() * 0.02 + 0.008,
+          x: (Math.random() - 0.5) * 0.015,
+          amp: Math.random() * 0.8,
+          freq: Math.random() * 0.03
+        })
+      }
+      pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3))
+      const pMat = new THREE.PointsMaterial({
+        size: 0.8, map: particleTexture, transparent: true,
+        blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.9
+      })
+      const particles = new THREE.Points(pGeo, pMat)
+      scene.add(particles)
+      const keys = { z: false, s: false, q: false, d: false }
+      const hPos = new THREE.Vector2(0, 2.5)
+      const hVel = new THREE.Vector2(0, 0)
+      const accel = 0.005
+      const friction = 0.9
+      window.addEventListener('keydown', e => { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true })
+      window.addEventListener('keyup', e => { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false })
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight
+        camera.updateProjectionMatrix()
+        renderer.setSize(window.innerWidth, window.innerHeight)
+      })
+      let time = 0
+      const animate = () => {
+        time += 0.03
+        if (keys.q) hVel.x -= accel
+        if (keys.d) hVel.x += accel
+        if (keys.z) hVel.y += accel
+        if (keys.s) hVel.y -= accel
+        hVel.multiplyScalar(friction)
+        hPos.add(hVel)
+        heartGroup.position.x = hPos.x
+        heartGroup.position.y = hPos.y + Math.sin(time * 1.5) * 0.3
+        const pulse = isHolding ? 0.3 * Math.sin(time * 10) : 0.15 * Math.sin(time * 4)
+        const scale = 1 + pulse
+        heartGroup.scale.set(scale, scale, scale)
+        heartGroup.rotation.y = Math.sin(time * 0.5) * 0.3 + (hPos.x * 0.1)
+        heartGroup.rotation.x = (hPos.y - 2.5) * -0.1
+        pointLight.position.x = hPos.x
+        pointLight.position.y = hPos.y
+        pointLight.intensity = 3 + Math.sin(time * 3) * 2
+        const positions = particles.geometry.attributes.position.array
+        for (let i = 0; i < pCount; i++) {
+          let px = positions[i * 3]
+          let py = positions[i * 3 + 1]
+          let pz = positions[i * 3 + 2]
+          py += pVel[i].y + (isHolding ? 0.05 : 0)
+          px += pVel[i].x + Math.sin(time * pVel[i].freq) * pVel[i].amp * 0.04
+          if (py > 20) { py = -20; px = pBase[i].x }
+          const dx = px - hPos.x
+          const dy = py - hPos.y
+          const distSq = dx * dx + dy * dy
+          if (distSq < 10) {
+            const dist = Math.sqrt(distSq)
+            const force = (3.1 - dist) / 3.1
+            px += (dx / dist) * force * 0.15
+            py += (dy / dist) * force * 0.15
+          }
+          positions[i * 3] = px
+          positions[i * 3 + 1] = py
+          positions[i * 3 + 2] = pz
+        }
+        particles.geometry.attributes.position.needsUpdate = true
+        renderer.render(scene, camera)
+        requestAnimationFrame(animate)
+      }
+      animate()
+    }
+    const initOverlay = () => {
+      const canvas = document.getElementById('overlay-canvas')
+      const ctx = canvas.getContext('2d')
+      let w = window.innerWidth
+      let h = window.innerHeight
+      canvas.width = w
+      canvas.height = h
+      let particles = []
+      let ripples = []
+      let fireflies = []
+      for (let i = 0; i < 50; i++) {
+        fireflies.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          size: Math.random() * 3 + 1,
+          vx: (Math.random() - 0.5) * 1,
+          vy: (Math.random() - 0.5) * 1,
+          angle: Math.random() * Math.PI * 2,
+          speed: Math.random() * 0.05 + 0.01
+        })
+      }
+      const createParticle = (x, y) => {
+        particles.push({
+          x, y,
+          size: Math.random() * 12 + 4,
+          life: 1,
+          color: `hsl(${310 + Math.random() * 50}, 100%, 75%)`,
+          vx: (Math.random() - 0.5) * 4,
+          vy: (Math.random() - 0.5) * 4
+        })
+      }
+      const createRipple = (x, y) => {
+        ripples.push({
+          x, y,
+          radius: 0,
+          life: 1,
+          color: `rgba(255, 105, 180, 1)`
+        })
+      }
+      const onMove = (e) => {
+        const x = e.touches ? e.touches[0].clientX : e.clientX
+        const y = e.touches ? e.touches[0].clientY : e.clientY
+        for (let i = 0; i < 5; i++) createParticle(x, y)
+      }
+      const onClick = (e) => {
+        const x = e.touches ? e.touches[0].clientX : e.clientX
+        const y = e.touches ? e.touches[0].clientY : e.clientY
+        createRipple(x, y)
+        for (let i = 0; i < 15; i++) createParticle(x, y)
+      }
+      window.addEventListener('mousemove', onMove)
+      window.addEventListener('touchmove', onMove)
+      window.addEventListener('click', onClick)
+      window.addEventListener('resize', () => {
+        w = window.innerWidth
+        h = window.innerHeight
+        canvas.width = w
+        canvas.height = h
+      })
+      const render = () => {
+        ctx.clearRect(0, 0, w, h)
+        for (let i = 0; i < fireflies.length; i++) {
+          const f = fireflies[i]
+          f.angle += f.speed
+          f.x += f.vx + Math.cos(f.angle) * 0.5
+          f.y += f.vy + Math.sin(f.angle) * 0.5
+          if (f.x < 0) f.x = w
+          if (f.x > w) f.x = 0
+          if (f.y < 0) f.y = h
+          if (f.y > h) f.y = 0
+          ctx.beginPath()
+          ctx.arc(f.x, f.y, f.size, 0, Math.PI * 2)
+          ctx.fillStyle = `rgba(255, 255, 200, ${0.3 + Math.sin(f.angle)*0.2})`
+          ctx.shadowBlur = 15
+          ctx.shadowColor = '#ffffaa'
+          ctx.fill()
+        }
+        for (let i = 0; i < ripples.length; i++) {
+          const r = ripples[i]
+          ctx.beginPath()
+          ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2)
+          ctx.strokeStyle = r.color.replace('1)', `${r.life})`)
+          ctx.lineWidth = 4
+          ctx.stroke()
+          r.radius += 5
+          r.life -= 0.03
+        }
+        ripples = ripples.filter(r => r.life > 0)
+        for (let i = 0; i < particles.length; i++) {
+          const p = particles[i]
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
+          ctx.fillStyle = p.color
+          ctx.globalAlpha = p.life
+          ctx.shadowBlur = 25
+          ctx.shadowColor = p.color
+          ctx.fill()
+          p.x += p.vx
+          p.y += p.vy
+          p.life -= 0.02
+        }
+        particles = particles.filter(p => p.life > 0)
+        ctx.globalAlpha = 1
+        requestAnimationFrame(render)
+      }
+      render()
+    }
+    window.onload = () => {
+      initThreeJS()
+      initOverlay()
+    }
+  </script>
+</body>
+</html>
